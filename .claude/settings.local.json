@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:3000/?date=2026-04-18)",
+      "Bash(curl -s \"http://localhost:3000/?date=2026-04-18\")",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(pkill -f node)",
+      "Bash(curl -v \"http://localhost:3000/?date=2026-04-18\")",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill /F /PID 4728)",
+      "Bash(tasklist)",
+      "Bash(taskkill /F /PID 24504 /PID 4728 /PID 9288 sleep 2 tasklist)",
+      "Bash(PORT=3001 node server.js)",
+      "Bash(curl -s \"http://localhost:3001/?date=2026-04-18\")",
+      "Bash(curl -s --max-time 20 \"http://localhost:3000/?date=2026-04-18\")",
+      "Bash(curl -s --max-time 5 \"http://localhost:3001/?date=2026-04-18\")",
+      "Bash(netstat -ano)"
+    ]
+  }
+}
