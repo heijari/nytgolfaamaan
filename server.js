@@ -3,7 +3,11 @@ const fetch = require('node-fetch');
 const COURSES = require('./courses');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
 
 const START_HOUR = 7;
 const END_HOUR = 18;
