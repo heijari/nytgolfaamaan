@@ -159,6 +159,7 @@ const COURSES = [
     teeTimeOffset: 5,
     infoTags: [
       { label: 'Caddiemasterilta', minutes: [35] },
+      { label: 'Caddiemasterilta', minutes: [5], weekends: true },
       { label: 'Palloränni', upto: { h: 9, m: 5 }, suppressTags: ['Caddiemasterilta'] },
       { label: 'Palloränni', from: { h: 17, m: 1 }, suppressTags: ['Caddiemasterilta'] },
     ],
