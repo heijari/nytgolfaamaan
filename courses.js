@@ -7,7 +7,7 @@ const COURSES = [
     productId: 7,
     golfId: 1,
     closedIfNoRows: true,  // pre-creates slots (status 4 visible)
-    lat: 60.3652, lng: 26.0461,
+    lat: 60.3652, lng: 26.0461, group: 'seagolf',
   },
   {
     id: 'seagolf-puisto',
@@ -17,7 +17,7 @@ const COURSES = [
     productId: 8,
     golfId: 1,
     closedIfNoRows: false, // only creates rows on booking
-    lat: 60.3645, lng: 26.0468,
+    lat: 60.3652, lng: 26.0461, group: 'seagolf',
   },
   {
     id: 'shg-luukki',
@@ -105,7 +105,7 @@ const COURSES = [
     productId: 165,
     golfId: 1,
     closedIfNoRows: false,
-    lat: 60.3235, lng: 24.8033,
+    lat: 60.3235, lng: 24.8033, group: 'keimola',
   },
   {
     id: 'keimola-saras',
@@ -115,7 +115,7 @@ const COURSES = [
     productId: 166,
     golfId: 1,
     closedIfNoRows: false,
-    lat: 60.3228, lng: 24.8040,
+    lat: 60.3235, lng: 24.8033, group: 'keimola',
   },
   {
     id: 'porvoo',
@@ -135,7 +135,7 @@ const COURSES = [
     productId: 1523,
     golfId: 1,
     closedIfNoRows: false,
-    lat: 60.5008, lng: 24.5737,
+    lat: 60.5008, lng: 24.5737, group: 'nurmi',
   },
   {
     id: 'nurmi-9r',
@@ -145,7 +145,7 @@ const COURSES = [
     productId: 1524,
     golfId: 1,
     closedIfNoRows: false,
-    lat: 60.5001, lng: 24.5744,
+    lat: 60.5008, lng: 24.5737, group: 'nurmi',
   },
   {
     id: 'stlg-pyha',
@@ -161,7 +161,7 @@ const COURSES = [
       { label: 'Palloränni', upto: { h: 9, m: 5 }, suppressTags: ['Caddiemasterilta'] },
       { label: 'Palloränni', from: { h: 17, m: 1 }, suppressTags: ['Caddiemasterilta'] },
     ],
-    lat: 60.2265, lng: 24.0676,
+    lat: 60.2265, lng: 24.0676, group: 'stlg',
   },
   {
     id: 'stlg-kalkki',
@@ -178,7 +178,7 @@ const COURSES = [
       { label: 'Palloränni', upto: { h: 9, m: 5 }, suppressTags: ['Caddiemasterilta'] },
       { label: 'Palloränni', from: { h: 17, m: 1 }, suppressTags: ['Caddiemasterilta'] },
     ],
-    lat: 60.2258, lng: 24.0683,
+    lat: 60.2265, lng: 24.0676, group: 'stlg',
   },
   {
     id: 'ruukki',

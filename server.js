@@ -479,7 +479,10 @@ function renderPage(date, results, isToday, nowHour, courses) {
       <h1>⛳ Tänään Tiille</h1>
       <span class="subtitle">Kultakorttikenttien vapaat lähdöt</span>
     </div>
-    <button class="info-btn" onclick="document.getElementById('info-modal').classList.add('open')" title="Tietoa palvelusta">ℹ</button>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <button class="info-btn" onclick="document.getElementById('info-modal').classList.add('open')" title="Tietoa palvelusta">ℹ</button>
+      <span class="meta">Päivitetty ${updatedAt}</span>
+    </div>
   </div>
   <div class="date-row">
     <div class="date-nav">
@@ -500,7 +503,6 @@ function renderPage(date, results, isToday, nowHour, courses) {
       <button class="filter-btn" data-min="3" onclick="setPlayerFilter(3)">3</button>
       <button class="filter-btn" data-min="4" onclick="setPlayerFilter(4)">4</button>
     </div>
-    <span class="meta">Päivitetty ${updatedAt}</span>
     <div class="view-toggle">
       <button class="view-btn active" id="btn-list" onclick="setView('list')">Lista</button>
       <button class="view-btn" id="btn-map" onclick="setView('map')">Kartta</button>
@@ -654,7 +656,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
   applyFilters();
 
   // --- Map view ---
-  const COURSE_COORDS = ${JSON.stringify(courses.filter(c => c.lat).map(c => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng })))};
+  const COURSE_COORDS = ${JSON.stringify(courses.filter(c => c.lat).map(c => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng, group: c.group || null })))};
 
   let map = null;
   let mapMarkers = [];
@@ -678,16 +680,27 @@ function renderPage(date, results, isToday, nowHour, courses) {
       maxZoom: 18,
     }).addTo(map);
 
+    // Group courses by group key, ungrouped courses use their own id as key
+    const groups = {};
     COURSE_COORDS.forEach(c => {
-      const marker = L.marker([c.lat, c.lng], { icon: makeIcon(c.id) });
+      const key = c.group || c.id;
+      if (!groups[key]) groups[key] = { lat: c.lat, lng: c.lng, courses: [] };
+      groups[key].courses.push(c);
+    });
+
+    Object.entries(groups).forEach(([key, g]) => {
+      const marker = L.marker([g.lat, g.lng], { icon: makeGroupIcon(g.courses) });
       marker.addTo(map);
       marker.on('click', () => {
-        const card = document.getElementById('card-' + c.id);
-        const count = card ? +card.querySelector('.badge-count').textContent : '?';
-        const label = card ? card.querySelector('.badge-label').textContent : '';
-        marker.bindPopup(\`<strong>\${c.name}</strong><br>\${count} \${label}\`).openPopup();
+        const lines = g.courses.map(c => {
+          const card = document.getElementById('card-' + c.id);
+          const count = card ? +card.querySelector('.badge-count').textContent : '?';
+          const lbl = card ? card.querySelector('.badge-label').textContent : '';
+          return \`<div>\${c.name}: <strong>\${count}</strong> \${lbl}</div>\`;
+        }).join('');
+        marker.bindPopup(\`<div style="min-width:160px">\${lines}</div>\`).openPopup();
       });
-      mapMarkers.push({ id: c.id, marker });
+      mapMarkers.push({ courses: g.courses, marker });
     });
 
     if (navigator.geolocation) {
@@ -701,9 +714,15 @@ function renderPage(date, results, isToday, nowHour, courses) {
     }
   }
 
-  function makeIcon(id) {
-    const card = document.getElementById('card-' + id);
-    const count = card ? +card.querySelector('.badge-count').textContent : 0;
+  function groupCount(courses) {
+    return courses.reduce((sum, c) => {
+      const card = document.getElementById('card-' + c.id);
+      return sum + (card ? +card.querySelector('.badge-count').textContent : 0);
+    }, 0);
+  }
+
+  function makeGroupIcon(courses) {
+    const count = groupCount(courses);
     const cls = count > 5 ? 'green' : count > 0 ? 'yellow' : 'gray';
     return L.divIcon({
       html: \`<div class="map-marker \${cls}">\${count}</div>\`,
@@ -712,7 +731,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
   }
 
   function updateMapMarkers() {
-    mapMarkers.forEach(({ id, marker }) => marker.setIcon(makeIcon(id)));
+    mapMarkers.forEach(({ courses, marker }) => marker.setIcon(makeGroupIcon(courses)));
   }
 
   const _origApply = applyFilters;
