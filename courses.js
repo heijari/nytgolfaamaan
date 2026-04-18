@@ -7,6 +7,7 @@ const COURSES = [
     productId: 7,
     golfId: 1,
     closedIfNoRows: true,  // pre-creates slots (status 4 visible)
+    lat: 60.3652, lng: 26.0461,
   },
   {
     id: 'seagolf-puisto',
@@ -16,6 +17,7 @@ const COURSES = [
     productId: 8,
     golfId: 1,
     closedIfNoRows: false, // only creates rows on booking
+    lat: 60.3645, lng: 26.0468,
   },
   {
     id: 'shg-luukki',
@@ -27,6 +29,7 @@ const COURSES = [
     resourceId: 1,
     closedIfNoRows: false,
     memberOnlyMinutes: [20, 50],
+    lat: 60.3199, lng: 24.6714,
   },
   {
     id: 'shg-lakisto',
@@ -38,6 +41,7 @@ const COURSES = [
     resourceId: 2,
     closedIfNoRows: false,
     memberOnlyMinutes: [20, 50],
+    lat: 60.3573, lng: 24.6528,
   },
   {
     id: 'ringside',
@@ -47,6 +51,7 @@ const COURSES = [
     productId: 17,
     golfId: 1,
     closedIfNoRows: true,  // pre-creates slots (status 4 visible)
+    lat: 60.2765, lng: 24.7427,
   },
   {
     id: 'gumbole',
@@ -56,6 +61,7 @@ const COURSES = [
     productId: 29,
     golfId: 1,
     closedIfNoRows: true,  // pre-creates slots (status 4 visible)
+    lat: 60.2246, lng: 24.6113,
   },
   {
     id: 'tgk',
@@ -65,6 +71,7 @@ const COURSES = [
     productId: 108,
     golfId: 1,
     closedIfNoRows: true,  // pre-creates slots (status 4 visible)
+    lat: 60.4160, lng: 25.0508,
   },
   {
     id: 'hirvihaara',
@@ -78,6 +85,7 @@ const COURSES = [
       // Weekends: whole-hour slots 08:00–16:00 are member-only
       { minutes: [0], hours: { from: 8, to: 16 }, weekendOnly: true },
     ],
+    lat: 60.6289, lng: 25.2114,
   },
   {
     id: 'hyvigolf',
@@ -87,6 +95,7 @@ const COURSES = [
     productId: 413,
     golfId: 1,
     closedIfNoRows: true,  // pre-creates slots (status 4 visible)
+    lat: 60.6565, lng: 24.8187,
   },
   {
     id: 'keimola-kirkka',
@@ -96,6 +105,7 @@ const COURSES = [
     productId: 165,
     golfId: 1,
     closedIfNoRows: false,
+    lat: 60.3235, lng: 24.8033,
   },
   {
     id: 'keimola-saras',
@@ -105,6 +115,7 @@ const COURSES = [
     productId: 166,
     golfId: 1,
     closedIfNoRows: false,
+    lat: 60.3228, lng: 24.8040,
   },
   {
     id: 'porvoo',
@@ -114,6 +125,7 @@ const COURSES = [
     productId: 7,
     golfId: 1,
     closedIfNoRows: false,
+    lat: 60.4211, lng: 25.6995,
   },
   {
     id: 'nurmi-18r',
@@ -123,6 +135,7 @@ const COURSES = [
     productId: 1523,
     golfId: 1,
     closedIfNoRows: false,
+    lat: 60.5008, lng: 24.5737,
   },
   {
     id: 'nurmi-9r',
@@ -132,6 +145,7 @@ const COURSES = [
     productId: 1524,
     golfId: 1,
     closedIfNoRows: false,
+    lat: 60.5001, lng: 24.5744,
   },
   {
     id: 'stlg-pyha',
@@ -147,6 +161,7 @@ const COURSES = [
       { label: 'Palloränni', upto: { h: 9, m: 5 }, suppressTags: ['Caddiemasterilta'] },
       { label: 'Palloränni', from: { h: 17, m: 1 }, suppressTags: ['Caddiemasterilta'] },
     ],
+    lat: 60.2265, lng: 24.0676,
   },
   {
     id: 'stlg-kalkki',
@@ -163,6 +178,7 @@ const COURSES = [
       { label: 'Palloränni', upto: { h: 9, m: 5 }, suppressTags: ['Caddiemasterilta'] },
       { label: 'Palloränni', from: { h: 17, m: 1 }, suppressTags: ['Caddiemasterilta'] },
     ],
+    lat: 60.2258, lng: 24.0683,
   },
   {
     id: 'ruukki',
@@ -172,6 +188,7 @@ const COURSES = [
     productId: 7,
     golfId: 1,
     closedIfNoRows: false,
+    lat: 60.1104, lng: 23.4717,
   },
 ];
 

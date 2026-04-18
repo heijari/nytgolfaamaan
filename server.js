@@ -199,7 +199,7 @@ function renderCourseCard({ course, slots, closed, error }) {
     </div>`;
 }
 
-function renderPage(date, results, isToday, nowHour) {
+function renderPage(date, results, isToday, nowHour, courses) {
   const cards = results.map(renderCourseCard).join('');
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, +1);
@@ -211,6 +211,7 @@ function renderPage(date, results, isToday, nowHour) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tänään Tiille – ${date}</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -414,6 +415,33 @@ function renderPage(date, results, isToday, nowHour) {
     .cards { transition: none; }
     .card { transition: border-color 0.15s, box-shadow 0.15s; }
 
+    /* ---- View toggle ---- */
+    .view-toggle { display: flex; gap: 5px; margin-left: auto; }
+    .view-btn {
+      background: #f4f8f4; border: 1px solid #b0ccb0; color: #4a7a4a;
+      border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .view-btn.active { background: #2d8a2d; border-color: #1a7a1a; color: #fff; font-weight: 600; }
+
+    /* ---- Map ---- */
+    .map-container {
+      display: none; max-width: 640px; margin: 0 auto;
+      height: calc(100dvh - 180px); min-height: 300px;
+    }
+    .map-container.visible { display: block; }
+    #map { width: 100%; height: 100%; }
+    .map-marker {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 50%;
+      font-size: 0.85rem; font-weight: 700; color: #fff;
+      border: 3px solid rgba(255,255,255,0.9);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .map-marker.green  { background: #2d8a2d; }
+    .map-marker.yellow { background: #b07800; }
+    .map-marker.gray   { background: #999; }
+
     /* ---- Footer ---- */
     .footer {
       max-width: 640px; margin: 0 auto;
@@ -473,6 +501,10 @@ function renderPage(date, results, isToday, nowHour) {
       <button class="filter-btn" data-min="4" onclick="setPlayerFilter(4)">4</button>
     </div>
     <span class="meta">Päivitetty ${updatedAt}</span>
+    <div class="view-toggle">
+      <button class="view-btn active" id="btn-list" onclick="setView('list')">Lista</button>
+      <button class="view-btn" id="btn-map" onclick="setView('map')">Kartta</button>
+    </div>
   </div>
   <div class="slider-row">
     <span class="filter-label">Kellonaika:</span>
@@ -486,6 +518,7 @@ function renderPage(date, results, isToday, nowHour) {
 </div>
 
 <div class="cards">${cards}</div>
+<div class="map-container" id="map-container"><div id="map"></div></div>
 
 <footer class="footer">Palvelun tehnyt Niklas H</footer>
 
@@ -619,7 +652,73 @@ function renderPage(date, results, isToday, nowHour) {
   });
   updateSliderUI();
   applyFilters();
+
+  // --- Map view ---
+  const COURSE_COORDS = ${JSON.stringify(courses.filter(c => c.lat).map(c => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng })))};
+
+  let map = null;
+  let mapMarkers = [];
+
+  function setView(view) {
+    const isList = view === 'list';
+    document.getElementById('btn-list').classList.toggle('active', isList);
+    document.getElementById('btn-map').classList.toggle('active', !isList);
+    document.querySelector('.cards').style.display = isList ? '' : 'none';
+    document.querySelector('.footer').style.display = isList ? '' : 'none';
+    const mapEl = document.getElementById('map-container');
+    mapEl.classList.toggle('visible', !isList);
+    if (!isList) initMap();
+  }
+
+  function initMap() {
+    if (map) { updateMapMarkers(); return; }
+    map = L.map('map').setView([60.35, 24.9], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 18,
+    }).addTo(map);
+
+    COURSE_COORDS.forEach(c => {
+      const marker = L.marker([c.lat, c.lng], { icon: makeIcon(c.id) });
+      marker.addTo(map);
+      marker.on('click', () => {
+        const card = document.getElementById('card-' + c.id);
+        const count = card ? +card.querySelector('.badge-count').textContent : '?';
+        const label = card ? card.querySelector('.badge-label').textContent : '';
+        marker.bindPopup(\`<strong>\${c.name}</strong><br>\${count} \${label}\`).openPopup();
+      });
+      mapMarkers.push({ id: c.id, marker });
+    });
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        L.circleMarker([lat, lng], {
+          radius: 8, fillColor: '#1a6aff', color: '#fff',
+          weight: 2, fillOpacity: 0.9,
+        }).addTo(map).bindPopup('Sijaintisi');
+      });
+    }
+  }
+
+  function makeIcon(id) {
+    const card = document.getElementById('card-' + id);
+    const count = card ? +card.querySelector('.badge-count').textContent : 0;
+    const cls = count > 5 ? 'green' : count > 0 ? 'yellow' : 'gray';
+    return L.divIcon({
+      html: \`<div class="map-marker \${cls}">\${count}</div>\`,
+      className: '', iconSize: [36, 36], iconAnchor: [18, 18],
+    });
+  }
+
+  function updateMapMarkers() {
+    mapMarkers.forEach(({ id, marker }) => marker.setIcon(makeIcon(id)));
+  }
+
+  const _origApply = applyFilters;
+  applyFilters = function() { _origApply(); if (map) updateMapMarkers(); };
 </script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>`;
 }
@@ -634,7 +733,7 @@ app.get('/', async (req, res) => {
   const isToday = date === today;
 
   const results = await fetchAllCourses(date);
-  res.send(renderPage(date, results, isToday, nowHour));
+  res.send(renderPage(date, results, isToday, nowHour, COURSES));
 });
 
 app.get('/saannot', (req, res) => {
