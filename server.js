@@ -11,10 +11,10 @@ const MAX_PLAYERS = 4;
 
 // --- Data fetching ---
 
-function generateTeeTimes(date) {
+function generateTeeTimes(date, offset = 0) {
   const times = [];
   for (let h = START_HOUR; h <= END_HOUR; h++) {
-    for (let m = 0; m < 60; m += 10) {
+    for (let m = offset; m < 60; m += 10) {
       times.push(`${date} ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
     }
   }
@@ -62,7 +62,8 @@ async function fetchCourseAvailability(course, date) {
   const dow = new Date(date).getDay(); // 0=Sun, 6=Sat
   const isWeekend = dow === 0 || dow === 6;
 
-  const slots = generateTeeTimes(date).map(time => {
+  const offset = course.teeTimeOffset || 0;
+  const slots = generateTeeTimes(date, offset).map(time => {
     const players = bookingCount[time] || 0;
     const blocked = blockedCount[time] || 0;
     const booked = Math.min(players + blocked, MAX_PLAYERS);
@@ -81,10 +82,27 @@ async function fetchCourseAvailability(course, date) {
       });
     }
 
-    return { time, booked, free: MAX_PLAYERS - booked, memberOnly };
+    const matchedTags = [];
+    if (course.infoTags) {
+      const slotMins = hour * 60 + minute;
+      for (const tag of course.infoTags) {
+        if (tag.minutes && tag.minutes.includes(minute)) { matchedTags.push(tag); continue; }
+        if (tag.upto != null && slotMins <= tag.upto.h * 60 + tag.upto.m) { matchedTags.push(tag); continue; }
+        if (tag.from != null && slotMins >= tag.from.h * 60 + tag.from.m) { matchedTags.push(tag); }
+      }
+    }
+    const suppressed = new Set(matchedTags.flatMap(t => t.suppressTags || []));
+    const tags = matchedTags.filter(t => !suppressed.has(t.label)).map(t => t.label);
+
+    return { time, booked, free: MAX_PLAYERS - booked, memberOnly, tags };
   });
 
-  return { course, slots, closed: false, error: null };
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
+  const visibleSlots = slots.filter(s => s.time >= nowStr);
+
+  return { course, slots: visibleSlots, closed: false, error: null };
 }
 
 async function fetchAllCourses(date) {
@@ -151,13 +169,14 @@ function renderCourseCard({ course, slots, closed, error }) {
     const label = s.free === 0 ? 'Täynnä' : `${s.free} vapaana`;
 
     const hour = parseInt(s.time.slice(11, 13));
-    const memberTag = s.memberOnly
-      ? `<span class="member-tag">Osakkaille</span>`
-      : '';
+    const tagsHtml = [
+      ...(s.memberOnly ? ['<span class="member-tag">Osakkaille</span>'] : []),
+      ...(s.tags || []).map(t => `<span class="info-tag">${escHtml(t)}</span>`),
+    ].join('');
     return `<div class="slot ${statusClass}" data-free="${s.free}" data-hour="${hour}">
       <span class="slot-time">${timeDisplay}</span>
       <div class="dots">${dots}</div>
-      ${memberTag}
+      ${tagsHtml}
       <span class="slot-label">${label}</span>
     </div>`;
   }).join('');
@@ -192,78 +211,94 @@ function renderPage(date, results) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nyt Golfaamaan – ${date}</title>
+  <title>Tänään Tiille – ${date}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1a0f;
-      color: #e8f5e8;
+      background: #f0f5f0;
+      color: #1a2a1a;
       min-height: 100vh;
     }
 
     /* ---- Top bar ---- */
     .topbar {
       position: sticky; top: 0; z-index: 100;
-      background: #0a130a;
-      border-bottom: 1px solid #1e3a1e;
+      background: #fff;
+      border-bottom: 1px solid #c8ddc8;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
       padding: 12px 16px;
       display: flex; flex-direction: column; gap: 10px;
       max-width: 640px; margin: 0 auto;
     }
-    h1 { font-size: 1.2rem; font-weight: 700; color: #7dd87d; letter-spacing: -0.3px; }
+    .topbar-title-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+    }
+    .topbar-title { display: flex; flex-direction: column; gap: 1px; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #1a7a1a; letter-spacing: -0.3px; }
+    .subtitle { font-size: 0.75rem; color: #5a8a5a; font-weight: 400; }
+
+    .info-btn {
+      background: none; border: 1px solid #b0ccb0; color: #5a8a5a;
+      border-radius: 50%; width: 26px; height: 26px; font-size: 0.8rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .info-btn:hover { background: #e8f4e8; color: #1a7a1a; }
 
     .date-row {
       display: flex; align-items: center; gap: 10px;
     }
     .date-nav { display: flex; align-items: center; gap: 6px; }
     .date-nav a {
-      color: #7ab87a; text-decoration: none; font-size: 1.3rem;
+      color: #2d8a2d; text-decoration: none; font-size: 1.3rem;
       padding: 3px 8px; border-radius: 6px;
     }
-    .date-nav a:hover { background: #1e2e1e; }
-    .date-nav .cur { font-size: 0.95rem; font-weight: 600; min-width: 100px; text-align: center; }
+    .date-nav a:hover { background: #e8f4e8; }
+    .date-nav .cur { font-size: 0.95rem; font-weight: 600; min-width: 100px; text-align: center; color: #1a2a1a; }
     .jump-form { display: flex; gap: 6px; margin-left: auto; }
     .jump-form input[type="date"] {
-      background: #1e2e1e; border: 1px solid #3a5a3a; color: #e8f5e8;
+      background: #f4f8f4; border: 1px solid #b0ccb0; color: #1a2a1a;
       border-radius: 6px; padding: 4px 8px; font-size: 0.8rem;
     }
     .jump-form button {
-      background: #2d7a2d; color: #fff; border: none; border-radius: 6px;
+      background: #2d8a2d; color: #fff; border: none; border-radius: 6px;
       padding: 4px 10px; cursor: pointer; font-size: 0.8rem;
     }
+    .jump-form button:hover { background: #1a7a1a; }
 
     .filter-row {
       display: flex; align-items: center; gap: 8px;
     }
-    .filter-label { font-size: 0.8rem; color: #7a9a7a; white-space: nowrap; }
+    .filter-label { font-size: 0.8rem; color: #6a8a6a; white-space: nowrap; }
     .filter-btns { display: flex; gap: 5px; }
     .filter-btn {
-      background: #1e2e1e; border: 1px solid #3a5a3a; color: #9ab89a;
+      background: #f4f8f4; border: 1px solid #b0ccb0; color: #4a7a4a;
       border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.85rem;
       transition: all 0.15s;
     }
     .filter-btn.active {
-      background: #2d7a2d; border-color: #4aaa4a; color: #fff; font-weight: 600;
+      background: #2d8a2d; border-color: #1a7a1a; color: #fff; font-weight: 600;
     }
-    .meta { font-size: 0.75rem; color: #4a6a4a; margin-left: auto; }
+    .meta { font-size: 0.75rem; color: #8aaa8a; margin-left: auto; }
 
     /* ---- Cards ---- */
     .cards {
       max-width: 640px; margin: 0 auto;
-      padding: 12px 12px 40px;
+      padding: 12px 12px 16px;
       display: flex; flex-direction: column; gap: 8px;
     }
 
     .card {
-      background: #141f14;
-      border: 1px solid #1e3a1e;
+      background: #fff;
+      border: 1px solid #c8ddc8;
       border-radius: 12px;
       overflow: hidden;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .card:hover { border-color: #2a5a2a; }
+    .card:hover { border-color: #80bb80; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     .card.hidden { display: none; }
 
     .card-header {
@@ -271,29 +306,29 @@ function renderPage(date, results) {
       display: flex; align-items: center; gap: 10px;
       padding: 12px 14px; cursor: pointer; text-align: left;
     }
-    .card-header:hover { background: #1a2a1a; }
+    .card-header:hover { background: #f4f8f4; }
 
     .card-title { display: flex; flex-direction: column; flex: 1; }
-    .card-name { font-weight: 600; font-size: 0.95rem; }
-    .card-club { font-size: 0.75rem; color: #5a8a5a; margin-top: 1px; }
+    .card-name { font-weight: 600; font-size: 0.95rem; color: #1a2a1a; }
+    .card-club { font-size: 0.75rem; color: #7aaa7a; margin-top: 1px; }
 
     .card-badge-wrap { display: flex; align-items: baseline; gap: 4px; }
     .badge-count {
-      font-size: 1.1rem; font-weight: 700; color: #5dd65d;
+      font-size: 1.1rem; font-weight: 700; color: #2a8a2a;
       min-width: 28px; text-align: right;
     }
-    .badge-count.zero { color: #4a6a4a; }
-    .badge-label { font-size: 0.72rem; color: #4a7a4a; white-space: nowrap; }
+    .badge-count.zero { color: #aacaaa; }
+    .badge-label { font-size: 0.72rem; color: #7aaa7a; white-space: nowrap; }
 
-    .chevron { color: #3a6a3a; font-size: 0.85rem; transition: transform 0.2s; }
+    .chevron { color: #90bb90; font-size: 0.85rem; transition: transform 0.2s; }
     .card.open .chevron { transform: rotate(90deg); }
 
-    .card-error { font-size: 0.8rem; color: #e05555; margin-left: 8px; }
-    .error-card, .closed-card { opacity: 0.45; }
-    .closed-label { font-size: 0.78rem; color: #4a6a4a; white-space: nowrap; }
+    .card-error { font-size: 0.8rem; color: #c03030; margin-left: 8px; }
+    .error-card, .closed-card { opacity: 0.5; }
+    .closed-label { font-size: 0.78rem; color: #aacaaa; white-space: nowrap; }
 
     /* ---- Slots ---- */
-    .card-body { display: none; border-top: 1px solid #1e3a1e; padding: 10px 12px; }
+    .card-body { display: none; border-top: 1px solid #dceadc; padding: 10px 12px; }
     .card.open .card-body { display: block; }
 
     .slots-grid {
@@ -308,30 +343,35 @@ function renderPage(date, results) {
     }
     .slot.hidden-by-filter { display: none; }
 
-    .slot.free    { background: #182818; border-color: #3dba3d; }
-    .slot.partial { background: #22200e; border-color: #c9a227; }
-    .slot.full    { background: #221515; border-color: #c23b3b; opacity: 0.45; }
+    .slot.free    { background: #edf7ed; border-color: #3dba3d; }
+    .slot.partial { background: #fdf8ec; border-color: #c9a227; }
+    .slot.full    { background: #fdf2f2; border-color: #e05555; opacity: 0.5; }
 
     .slot-time { font-size: 0.9rem; font-weight: 600; width: 38px; flex-shrink: 0; }
-    .slot.free    .slot-time { color: #5dd65d; }
-    .slot.partial .slot-time { color: #e6bb44; }
-    .slot.full    .slot-time { color: #e05555; }
+    .slot.free    .slot-time { color: #1a8a1a; }
+    .slot.partial .slot-time { color: #8a6800; }
+    .slot.full    .slot-time { color: #c03030; }
 
     .dots { display: flex; gap: 4px; flex: 1; }
     .dot { width: 14px; height: 14px; border-radius: 50%; }
-    .dot.booked { background: #c23b3b; }
-    .dot.open   { background: #1e3a1e; border: 2px solid #3a7a3a; }
+    .dot.booked { background: #e05555; }
+    .dot.open   { background: #d0ecd0; border: 2px solid #7acc7a; }
 
-    .slot-label { font-size: 0.75rem; color: #7a9a7a; width: 64px; text-align: right; flex-shrink: 0; }
-    .slot.full .slot-label { color: #7a5050; }
+    .slot-label { font-size: 0.75rem; color: #6a9a6a; width: 64px; text-align: right; flex-shrink: 0; }
+    .slot.full .slot-label { color: #b07070; }
     .member-tag {
-      font-size: 0.65rem; color: #7a6a3a; background: #2a2010;
-      border: 1px solid #4a3a1a; border-radius: 4px;
+      font-size: 0.65rem; color: #8a6a20; background: #fdf4e0;
+      border: 1px solid #d4b870; border-radius: 4px;
+      padding: 1px 5px; white-space: nowrap; flex-shrink: 0;
+    }
+    .info-tag {
+      font-size: 0.65rem; color: #2a7a8a; background: #e6f4f7;
+      border: 1px solid #90c4d0; border-radius: 4px;
       padding: 1px 5px; white-space: nowrap; flex-shrink: 0;
     }
 
     /* ---- No-results notice ---- */
-    .no-slots { font-size: 0.82rem; color: #4a6a4a; padding: 8px 4px; text-align: center; }
+    .no-slots { font-size: 0.82rem; color: #8aaa8a; padding: 8px 4px; text-align: center; }
 
     /* ---- Time slider ---- */
     .slider-row {
@@ -342,7 +382,7 @@ function renderPage(date, results) {
     }
     .slider-track {
       position: absolute; top: 50%; left: 0; right: 0;
-      height: 4px; background: #1e3a1e; border-radius: 2px;
+      height: 4px; background: #d0e8d0; border-radius: 2px;
       transform: translateY(-50%);
     }
     .slider-fill {
@@ -357,28 +397,63 @@ function renderPage(date, results) {
     .slider-wrap input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 18px; height: 18px; border-radius: 50%;
-      background: #5dd65d; border: 2px solid #0f1a0f;
+      background: #2d8a2d; border: 2px solid #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
       pointer-events: all; cursor: pointer;
     }
     .slider-wrap input[type=range]::-moz-range-thumb {
       width: 18px; height: 18px; border-radius: 50%;
-      background: #5dd65d; border: 2px solid #0f1a0f;
+      background: #2d8a2d; border: 2px solid #fff;
       pointer-events: all; cursor: pointer;
     }
     .slider-label {
-      font-size: 0.82rem; font-weight: 600; color: #7dd87d;
+      font-size: 0.82rem; font-weight: 600; color: #2d8a2d;
       white-space: nowrap; min-width: 90px; text-align: right;
     }
 
     /* ---- Card sort transition ---- */
     .cards { transition: none; }
-    .card { transition: border-color 0.15s; }
+    .card { transition: border-color 0.15s, box-shadow 0.15s; }
+
+    /* ---- Footer ---- */
+    .footer {
+      max-width: 640px; margin: 0 auto;
+      padding: 12px 16px 32px;
+      text-align: center;
+      font-size: 0.75rem; color: #9aba9a;
+    }
+
+    /* ---- Info modal ---- */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.35); align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 14px;
+      padding: 24px; max-width: 340px; width: calc(100% - 32px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    .modal h2 { font-size: 1rem; color: #1a7a1a; margin-bottom: 12px; }
+    .modal p { font-size: 0.84rem; color: #3a4a3a; line-height: 1.5; margin-bottom: 10px; }
+    .modal ul { font-size: 0.82rem; color: #4a5a4a; line-height: 1.6; padding-left: 18px; margin-bottom: 16px; }
+    .modal-close {
+      background: #2d8a2d; color: #fff; border: none; border-radius: 8px;
+      padding: 8px 20px; cursor: pointer; font-size: 0.85rem; width: 100%;
+    }
+    .modal-close:hover { background: #1a7a1a; }
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>⛳ Nyt Golfaamaan</h1>
+  <div class="topbar-title-row">
+    <div class="topbar-title">
+      <h1>⛳ Tänään Tiille</h1>
+      <span class="subtitle">Kultakorttikenttien vapaat lähdöt</span>
+    </div>
+    <button class="info-btn" onclick="document.getElementById('info-modal').classList.add('open')" title="Tietoa palvelusta">ℹ</button>
+  </div>
   <div class="date-row">
     <div class="date-nav">
       <a href="/?date=${prev}">‹</a>
@@ -413,9 +488,38 @@ function renderPage(date, results) {
 
 <div class="cards">${cards}</div>
 
+<footer class="footer">Palvelun tehnyt Niklas H</footer>
+
+<div class="modal-overlay" id="info-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <h2>⛳ Tänään Tiille</h2>
+    <p>Palvelu näyttää kultakorttikenttien vapaat lähtöajat reaaliajassa suoraan kenttien varausjärjestelmistä.</p>
+    <p><strong>Rajoitukset:</strong></p>
+    <ul>
+      <li>Kentät on kovakoodattu – uusia kenttiä ei lisätä automaattisesti</li>
+      <li>Vain kultakorttikenttinä merkityt kentät näkyvät</li>
+      <li>Palloränni- ja Caddiemaster-merkinnät perustuvat kiinteisiin kellonaikarajoihin, ei reaaliaikaiseen tietoon</li>
+      <li>Tiedot päivitetään joka sivulatauksella</li>
+      <li>Näytetään vain kuluvan päivän tai valitun päivän tilanne</li>
+    </ul>
+    <button class="modal-close" onclick="document.getElementById('info-modal').classList.remove('open')">Sulje</button>
+  </div>
+</div>
+
 <script>
   let minPlayers = 1;
   let timeStart = 7, timeEnd = 20;
+
+  const _saved = JSON.parse(localStorage.getItem('golfFilters') || 'null');
+  if (_saved) {
+    if (_saved.minPlayers) minPlayers = _saved.minPlayers;
+    if (_saved.timeStart != null) timeStart = _saved.timeStart;
+    if (_saved.timeEnd   != null) timeEnd   = _saved.timeEnd;
+  }
+
+  function saveFilters() {
+    localStorage.setItem('golfFilters', JSON.stringify({ minPlayers, timeStart, timeEnd }));
+  }
 
   // --- Player filter ---
   function setPlayerFilter(min) {
@@ -423,6 +527,7 @@ function renderPage(date, results) {
     document.querySelectorAll('#player-btns .filter-btn').forEach(btn => {
       btn.classList.toggle('active', +btn.dataset.min === min);
     });
+    saveFilters();
     applyFilters();
   }
 
@@ -448,12 +553,14 @@ function renderPage(date, results) {
   rangeStart.addEventListener('input', () => {
     if (+rangeStart.value > +rangeEnd.value) rangeStart.value = rangeEnd.value;
     timeStart = +rangeStart.value;
+    saveFilters();
     updateSliderUI();
     applyFilters();
   });
   rangeEnd.addEventListener('input', () => {
     if (+rangeEnd.value < +rangeStart.value) rangeEnd.value = rangeStart.value;
     timeEnd = +rangeEnd.value;
+    saveFilters();
     updateSliderUI();
     applyFilters();
   });
@@ -499,7 +606,12 @@ function renderPage(date, results) {
     document.getElementById('card-' + id).classList.toggle('open');
   }
 
-  // Init
+  // Init — restore saved filter state
+  rangeStart.value = timeStart;
+  rangeEnd.value   = timeEnd;
+  document.querySelectorAll('#player-btns .filter-btn').forEach(btn => {
+    btn.classList.toggle('active', +btn.dataset.min === minPlayers);
+  });
   updateSliderUI();
   applyFilters();
 </script>
