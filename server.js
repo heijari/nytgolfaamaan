@@ -426,10 +426,12 @@ function renderPage(date, results, isToday, nowHour, courses) {
 
     /* ---- Map ---- */
     .map-container {
-      display: none; max-width: 640px; margin: 0 auto;
-      height: calc(100dvh - 180px); min-height: 300px;
+      display: none;
     }
-    .map-container.visible { display: block; }
+    .map-container.visible {
+      display: block;
+      position: fixed; top: 160px; left: 0; right: 0; bottom: 0; z-index: 50;
+    }
     #map { width: 100%; height: 100%; }
     .map-marker {
       display: flex; align-items: center; justify-content: center;
@@ -441,6 +443,27 @@ function renderPage(date, results, isToday, nowHour, courses) {
     .map-marker.green  { background: #2d8a2d; }
     .map-marker.yellow { background: #b07800; }
     .map-marker.gray   { background: #999; }
+
+    /* ---- Course drawer ---- */
+    .course-drawer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 160;
+      background: #fff; border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+      max-height: 65vh; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.25s ease;
+    }
+    .course-drawer.open { transform: translateY(0); }
+    .drawer-header {
+      padding: 12px 16px; border-bottom: 1px solid #dceadc;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .drawer-header h3 { font-size: 0.95rem; color: #1a7a1a; }
+    .drawer-close {
+      background: none; border: none; font-size: 1.3rem;
+      color: #90bb90; cursor: pointer; line-height: 1;
+    }
+    .drawer-body { overflow-y: auto; padding: 10px 12px; flex: 1; }
+    .drawer-empty { font-size: 0.85rem; color: #8aaa8a; text-align: center; padding: 20px; }
 
     /* ---- Footer ---- */
     .footer {
@@ -521,6 +544,14 @@ function renderPage(date, results, isToday, nowHour, courses) {
 
 <div class="cards">${cards}</div>
 <div class="map-container" id="map-container"><div id="map"></div></div>
+
+<div class="course-drawer" id="course-drawer">
+  <div class="drawer-header">
+    <h3 id="drawer-title"></h3>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
 
 <footer class="footer">Palvelun tehnyt Niklas H</footer>
 
@@ -667,8 +698,13 @@ function renderPage(date, results, isToday, nowHour, courses) {
     document.getElementById('btn-map').classList.toggle('active', !isList);
     document.querySelector('.cards').style.display = isList ? '' : 'none';
     document.querySelector('.footer').style.display = isList ? '' : 'none';
+    document.body.style.overflow = isList ? '' : 'hidden';
     const mapEl = document.getElementById('map-container');
+    if (!isList) mapEl.style.top = document.querySelector('.topbar').offsetHeight + 'px';
     mapEl.classList.toggle('visible', !isList);
+    const s = JSON.parse(localStorage.getItem('golfFilters') || '{}');
+    s.view = view;
+    localStorage.setItem('golfFilters', JSON.stringify(s));
     if (!isList) initMap();
   }
 
@@ -696,9 +732,12 @@ function renderPage(date, results, isToday, nowHour, courses) {
           const card = document.getElementById('card-' + c.id);
           const count = card ? +card.querySelector('.badge-count').textContent : '?';
           const lbl = card ? card.querySelector('.badge-label').textContent : '';
-          return \`<div>\${c.name}: <strong>\${count}</strong> \${lbl}</div>\`;
+          return \`<div onclick="showCourseDrawer('\${c.id}')" style="cursor:pointer;padding:5px 0;border-bottom:1px solid #eee">
+            <span style="color:#1a7a1a;font-weight:600">\${c.name}</span><br>
+            <span style="color:#555;font-size:0.85rem">\${count} \${lbl} ›</span>
+          </div>\`;
         }).join('');
-        marker.setPopupContent(\`<div style="min-width:160px">\${lines}</div>\`);
+        marker.setPopupContent(\`<div style="min-width:170px">\${lines}</div>\`);
         marker.openPopup();
       });
       marker.addTo(map);
@@ -738,6 +777,42 @@ function renderPage(date, results, isToday, nowHour, courses) {
 
   const _origApply = applyFilters;
   applyFilters = function() { _origApply(); if (map) updateMapMarkers(); };
+
+  // --- Course drawer ---
+  function showCourseDrawer(id) {
+    if (map) map.closePopup();
+    const card = document.getElementById('card-' + id);
+    if (!card) return;
+    document.getElementById('drawer-title').textContent = card.querySelector('.card-name').textContent;
+    const slots = [...card.querySelectorAll('.slot:not(.full):not(.hidden-by-filter)')];
+    if (!slots.length) {
+      document.getElementById('drawer-body').innerHTML = '<p class="drawer-empty">Ei vapaita lähtöjä nykyisellä suodatuksella</p>';
+    } else {
+      document.getElementById('drawer-body').innerHTML = slots.map(s => {
+        const time = s.querySelector('.slot-time').textContent;
+        const label = s.querySelector('.slot-label').textContent;
+        const dots = s.querySelector('.dots').innerHTML;
+        const tags = [...s.querySelectorAll('.member-tag,.info-tag')].map(t =>
+          \`<span class="\${t.className}">\${t.textContent}</span>\`
+        ).join('');
+        const cls = s.classList.contains('free') ? 'free' : 'partial';
+        return \`<div class="slot \${cls}" style="margin-bottom:4px">
+          <span class="slot-time">\${time}</span>
+          <div class="dots">\${dots}</div>
+          \${tags}
+          <span class="slot-label">\${label}</span>
+        </div>\`;
+      }).join('');
+    }
+    document.getElementById('course-drawer').classList.add('open');
+  }
+
+  function closeDrawer() {
+    document.getElementById('course-drawer').classList.remove('open');
+  }
+
+  // Restore view from localStorage
+  if (_saved && _saved.view) setView(_saved.view);
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
