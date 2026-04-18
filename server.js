@@ -690,7 +690,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
 
     Object.entries(groups).forEach(([key, g]) => {
       const marker = L.marker([g.lat, g.lng], { icon: makeGroupIcon(g.courses) });
-      marker.addTo(map);
+      marker.bindPopup('');
       marker.on('click', () => {
         const lines = g.courses.map(c => {
           const card = document.getElementById('card-' + c.id);
@@ -698,8 +698,10 @@ function renderPage(date, results, isToday, nowHour, courses) {
           const lbl = card ? card.querySelector('.badge-label').textContent : '';
           return \`<div>\${c.name}: <strong>\${count}</strong> \${lbl}</div>\`;
         }).join('');
-        marker.bindPopup(\`<div style="min-width:160px">\${lines}</div>\`).openPopup();
+        marker.setPopupContent(\`<div style="min-width:160px">\${lines}</div>\`);
+        marker.openPopup();
       });
+      marker.addTo(map);
       mapMarkers.push({ courses: g.courses, marker });
     });
 
