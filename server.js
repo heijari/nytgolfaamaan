@@ -86,6 +86,7 @@ async function fetchCourseAvailability(course, date) {
     if (course.infoTags) {
       const slotMins = hour * 60 + minute;
       for (const tag of course.infoTags) {
+        if (tag.weekends && !isWeekend) continue;
         if (tag.minutes && tag.minutes.includes(minute)) { matchedTags.push(tag); continue; }
         if (tag.upto != null && slotMins <= tag.upto.h * 60 + tag.upto.m) { matchedTags.push(tag); continue; }
         if (tag.from != null && slotMins >= tag.from.h * 60 + tag.from.m) { matchedTags.push(tag); }
@@ -97,10 +98,8 @@ async function fetchCourseAvailability(course, date) {
     return { time, booked, free: MAX_PLAYERS - booked, memberOnly, tags };
   });
 
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
-  const visibleSlots = slots.filter(s => s.time >= nowStr);
+  const nowFiStr = new Date().toLocaleString('sv', { timeZone: 'Europe/Helsinki' }).slice(0, 16) + ':00';
+  const visibleSlots = slots.filter(s => s.time >= nowFiStr);
 
   return { course, slots: visibleSlots, closed: false, error: null };
 }
@@ -200,11 +199,11 @@ function renderCourseCard({ course, slots, closed, error }) {
     </div>`;
 }
 
-function renderPage(date, results) {
+function renderPage(date, results, isToday, nowHour) {
   const cards = results.map(renderCourseCard).join('');
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, +1);
-  const updatedAt = new Date().toLocaleTimeString('fi-FI');
+  const updatedAt = new Date().toLocaleTimeString('fi-FI', { timeZone: 'Europe/Helsinki' });
 
   return `<!DOCTYPE html>
 <html lang="fi">
@@ -479,8 +478,8 @@ function renderPage(date, results) {
     <span class="filter-label">Kellonaika:</span>
     <div class="slider-wrap" id="slider-wrap">
       <div class="slider-track"><div class="slider-fill" id="slider-fill"></div></div>
-      <input type="range" id="range-start" min="7" max="20" value="7" step="1">
-      <input type="range" id="range-end"   min="7" max="20" value="20" step="1">
+      <input type="range" id="range-start" min="${isToday ? nowHour : 7}" max="20" value="${isToday ? nowHour : 7}" step="1">
+      <input type="range" id="range-end"   min="${isToday ? nowHour : 7}" max="20" value="20" step="1">
     </div>
     <span class="slider-label" id="slider-label">07:00–19:00</span>
   </div>
@@ -502,18 +501,24 @@ function renderPage(date, results) {
       <li>Tiedot päivitetään joka sivulatauksella</li>
       <li>Näytetään vain kuluvan päivän tai valitun päivän tilanne</li>
     </ul>
-    <button class="modal-close" onclick="document.getElementById('info-modal').classList.remove('open')">Sulje</button>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <a href="/saannot" target="_blank" style="flex:1;text-align:center;padding:8px;border:1px solid #b0ccb0;border-radius:8px;font-size:0.85rem;color:#2d8a2d;text-decoration:none;">Kovakoodatut säännöt ›</a>
+      <button class="modal-close" style="flex:1" onclick="document.getElementById('info-modal').classList.remove('open')">Sulje</button>
+    </div>
   </div>
 </div>
 
 <script>
+  const IS_TODAY = ${isToday};
+  const NOW_HOUR = ${nowHour};
+
   let minPlayers = 1;
-  let timeStart = 7, timeEnd = 20;
+  let timeStart = IS_TODAY ? NOW_HOUR : 7, timeEnd = 20;
 
   const _saved = JSON.parse(localStorage.getItem('golfFilters') || 'null');
   if (_saved) {
     if (_saved.minPlayers) minPlayers = _saved.minPlayers;
-    if (_saved.timeStart != null) timeStart = _saved.timeStart;
+    if (_saved.timeStart != null) timeStart = IS_TODAY ? Math.max(_saved.timeStart, NOW_HOUR) : _saved.timeStart;
     if (_saved.timeEnd   != null) timeEnd   = _saved.timeEnd;
   }
 
@@ -622,11 +627,47 @@ function renderPage(date, results) {
 // --- Routes ---
 
 app.get('/', async (req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const nowFi = new Date().toLocaleString('sv', { timeZone: 'Europe/Helsinki' });
+  const today = nowFi.slice(0, 10);
+  const nowHour = parseInt(nowFi.slice(11, 13));
   const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : today;
+  const isToday = date === today;
 
   const results = await fetchAllCourses(date);
-  res.send(renderPage(date, results));
+  res.send(renderPage(date, results, isToday, nowHour));
+});
+
+app.get('/saannot', (req, res) => {
+  const rows = COURSES.map(c => {
+    const rules = [];
+    if (c.teeTimeOffset) rules.push(`Lähtöaikaoffset: ${c.teeTimeOffset} min`);
+    if (c.memberOnlyMinutes) rules.push(`Osakkaille minuutit: ${c.memberOnlyMinutes.join(', ')}`);
+    if (c.memberOnlyRules) c.memberOnlyRules.forEach(r =>
+      rules.push(`Osakkaille (${r.weekendOnly ? 'vklp' : 'aina'}): min ${r.minutes.join(',')} h ${r.hours ? r.hours.from+'–'+r.hours.to : 'kaikki'}`)
+    );
+    if (c.infoTags) c.infoTags.forEach(t => {
+      const when = [
+        t.weekends ? 'vklp' : null,
+        t.minutes ? `min ${t.minutes.join(',')}` : null,
+        t.upto ? `→ ${t.upto.h}:${String(t.upto.m).padStart(2,'0')}` : null,
+        t.from ? `${t.from.h}:${String(t.from.m).padStart(2,'0')} →` : null,
+        t.suppressTags ? `(poistaa: ${t.suppressTags.join(', ')})` : null,
+      ].filter(Boolean).join(' ');
+      rules.push(`${t.label}: ${when}`);
+    });
+    return `<tr><td><strong>${c.name}</strong><br><small style="color:#888">${c.id} · ${c.domain}</small></td><td>${rules.map(r => `<div>${r}</div>`).join('') || '–'}</td></tr>`;
+  }).join('');
+  res.send(`<!DOCTYPE html><html lang="fi"><head><meta charset="UTF-8"><title>Säännöt – Tänään Tiille</title>
+<style>body{font-family:system-ui;max-width:700px;margin:40px auto;padding:0 16px;color:#1a2a1a;background:#f0f5f0}
+h1{color:#1a7a1a;margin-bottom:20px}table{width:100%;border-collapse:collapse}
+td{padding:10px 12px;vertical-align:top;border-bottom:1px solid #d0e8d0;font-size:0.88rem}
+td:first-child{width:40%;color:#1a3a1a}td div{margin-bottom:2px}
+a{color:#2d8a2d}</style></head><body>
+<h1>⛳ Kovakoodatut säännöt</h1>
+<p style="margin-bottom:16px;font-size:0.85rem;color:#5a8a5a">Muokkaa tiedostoa <code>courses.js</code></p>
+<table>${rows}</table>
+<p style="margin-top:24px"><a href="/">← Takaisin</a></p>
+</body></html>`);
 });
 
 app.listen(PORT, () => {

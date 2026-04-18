@@ -143,6 +143,7 @@ const COURSES = [
     closedIfNoRows: false,
     infoTags: [
       { label: 'Caddiemasterilta', minutes: [30, 35] },
+      { label: 'Caddiemasterilta', minutes: [0], weekends: true },
       { label: 'Palloränni', upto: { h: 9, m: 5 }, suppressTags: ['Caddiemasterilta'] },
       { label: 'Palloränni', from: { h: 17, m: 1 }, suppressTags: ['Caddiemasterilta'] },
     ],
