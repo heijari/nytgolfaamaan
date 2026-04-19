@@ -551,7 +551,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
     <div class="slider-wrap" id="slider-wrap">
       <div class="slider-track"><div class="slider-fill" id="slider-fill"></div></div>
       <input type="range" id="range-start" min="${isToday ? nowHour : 7}" max="20" value="${isToday ? nowHour : 7}" step="1">
-      <input type="range" id="range-end"   min="${isToday ? Math.min(nowHour + 1, 20) : 8}" max="20" value="20" step="1">
+      <input type="range" id="range-end"   min="${isToday ? nowHour : 7}" max="20" value="20" step="1">
     </div>
     <span class="slider-label" id="slider-label">07:00–19:00</span>
   </div>
