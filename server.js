@@ -551,7 +551,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
     <div class="slider-wrap" id="slider-wrap">
       <div class="slider-track"><div class="slider-fill" id="slider-fill"></div></div>
       <input type="range" id="range-start" min="${isToday ? nowHour : 7}" max="20" value="${isToday ? nowHour : 7}" step="1">
-      <input type="range" id="range-end"   min="${isToday ? nowHour : 7}" max="20" value="20" step="1">
+      <input type="range" id="range-end"   min="${isToday ? Math.min(nowHour + 1, 20) : 8}" max="20" value="20" step="1">
     </div>
     <span class="slider-label" id="slider-label">07:00–19:00</span>
   </div>
@@ -660,7 +660,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
   if (_saved) {
     if (_saved.minPlayers) minPlayers = _saved.minPlayers;
     if (_saved.timeStart != null) timeStart = IS_TODAY ? Math.max(_saved.timeStart, NOW_HOUR) : _saved.timeStart;
-    if (_saved.timeEnd   != null) timeEnd   = _saved.timeEnd;
+    if (_saved.timeEnd   != null) timeEnd   = IS_TODAY ? Math.max(_saved.timeEnd, timeStart + 1) : _saved.timeEnd;
   }
 
   function saveFilters() {
@@ -697,14 +697,14 @@ function renderPage(date, results, isToday, nowHour, courses) {
   }
 
   rangeStart.addEventListener('input', () => {
-    if (+rangeStart.value > +rangeEnd.value) rangeStart.value = rangeEnd.value;
+    if (+rangeStart.value >= +rangeEnd.value) rangeStart.value = +rangeEnd.value - 1;
     timeStart = +rangeStart.value;
     saveFilters();
     updateSliderUI();
     applyFilters();
   });
   rangeEnd.addEventListener('input', () => {
-    if (+rangeEnd.value < +rangeStart.value) rangeEnd.value = rangeStart.value;
+    if (+rangeEnd.value <= +rangeStart.value) rangeEnd.value = +rangeStart.value + 1;
     timeEnd = +rangeEnd.value;
     saveFilters();
     updateSliderUI();
