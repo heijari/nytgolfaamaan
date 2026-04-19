@@ -147,7 +147,7 @@ function renderCourseCard({ course, slots, closed, error }) {
             <span class="card-name">${escHtml(course.name)}</span>
             <span class="card-club">${escHtml(course.club)}</span>
           </div>
-          <span class="closed-label">Kalenteri ei auki</span>
+          <span class="closed-label" data-i18n="calendarClosed">Kalenteri ei auki</span>
         </div>
       </div>`;
   }
@@ -415,6 +415,15 @@ function renderPage(date, results, isToday, nowHour, courses) {
     .cards { transition: none; }
     .card { transition: border-color 0.15s, box-shadow 0.15s; }
 
+    /* ---- Lang toggle ---- */
+    .lang-toggle { display: flex; gap: 4px; }
+    .lang-btn {
+      background: #f4f8f4; border: 1px solid #b0ccb0; color: #4a7a4a;
+      border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 0.78rem;
+      transition: all 0.15s;
+    }
+    .lang-btn.active { background: #2d8a2d; border-color: #1a7a1a; color: #fff; font-weight: 600; }
+
     /* ---- View toggle ---- */
     .view-toggle { display: flex; gap: 5px; margin-left: auto; }
     .view-btn {
@@ -500,11 +509,17 @@ function renderPage(date, results, isToday, nowHour, courses) {
   <div class="topbar-title-row">
     <div class="topbar-title">
       <h1>⛳ Tänään Tiille</h1>
-      <span class="subtitle">Kultakorttikenttien vapaat lähdöt</span>
+      <span class="subtitle" data-i18n="subtitle">Kultakorttikenttien vapaat lähdöt</span>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-      <button class="info-btn" onclick="document.getElementById('info-modal').classList.add('open')" title="Tietoa palvelusta">ℹ</button>
-      <span class="meta">Päivitetty ${updatedAt}</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div class="lang-toggle">
+          <button class="lang-btn" id="lang-fi" onclick="setLang('fi')">FI</button>
+          <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+        </div>
+        <button class="info-btn" onclick="document.getElementById('info-modal').classList.add('open')" title="Tietoa palvelusta">ℹ</button>
+      </div>
+      <span class="meta"><span data-i18n="updated">Päivitetty</span> ${updatedAt}</span>
     </div>
   </div>
   <div class="date-row">
@@ -515,11 +530,11 @@ function renderPage(date, results, isToday, nowHour, courses) {
     </div>
     <form class="jump-form" method="get" action="/">
       <input type="date" name="date" value="${date}">
-      <button type="submit">Hae</button>
+      <button type="submit" data-i18n="search">Hae</button>
     </form>
   </div>
   <div class="filter-row">
-    <span class="filter-label">Pelaajia:</span>
+    <span class="filter-label" data-i18n="players">Pelaajia:</span>
     <div class="filter-btns" id="player-btns">
       <button class="filter-btn active" data-min="1" onclick="setPlayerFilter(1)">1</button>
       <button class="filter-btn" data-min="2" onclick="setPlayerFilter(2)">2</button>
@@ -527,12 +542,12 @@ function renderPage(date, results, isToday, nowHour, courses) {
       <button class="filter-btn" data-min="4" onclick="setPlayerFilter(4)">4</button>
     </div>
     <div class="view-toggle">
-      <button class="view-btn active" id="btn-list" onclick="setView('list')">Lista</button>
-      <button class="view-btn" id="btn-map" onclick="setView('map')">Kartta</button>
+      <button class="view-btn active" id="btn-list" onclick="setView('list')" data-i18n="list">Lista</button>
+      <button class="view-btn" id="btn-map" onclick="setView('map')" data-i18n="map">Kartta</button>
     </div>
   </div>
   <div class="slider-row">
-    <span class="filter-label">Kellonaika:</span>
+    <span class="filter-label" data-i18n="time">Kellonaika:</span>
     <div class="slider-wrap" id="slider-wrap">
       <div class="slider-track"><div class="slider-fill" id="slider-fill"></div></div>
       <input type="range" id="range-start" min="${isToday ? nowHour : 7}" max="20" value="${isToday ? nowHour : 7}" step="1">
@@ -553,23 +568,36 @@ function renderPage(date, results, isToday, nowHour, courses) {
   <div class="drawer-body" id="drawer-body"></div>
 </div>
 
-<footer class="footer">Palvelun tehnyt Niklas H</footer>
+<footer class="footer" data-i18n="footer">Palvelun tehnyt Niklas H</footer>
 
 <div class="modal-overlay" id="info-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <h2>⛳ Tänään Tiille</h2>
-    <p>Palvelu näyttää kultakorttikenttien vapaat lähtöajat reaaliajassa suoraan kenttien varausjärjestelmistä.</p>
-    <p><strong>Rajoitukset:</strong></p>
-    <ul>
-      <li>Kentät on kovakoodattu – uusia kenttiä ei lisätä automaattisesti</li>
-      <li>Vain kultakorttikenttinä merkityt kentät näkyvät</li>
-      <li>Palloränni- ja Caddiemaster-merkinnät perustuvat kiinteisiin kellonaikarajoihin, ei reaaliaikaiseen tietoon</li>
-      <li>Tiedot päivitetään joka sivulatauksella</li>
-      <li>Näytetään vain kuluvan päivän tai valitun päivän tilanne</li>
-    </ul>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <a href="/saannot" target="_blank" style="flex:1;text-align:center;padding:8px;border:1px solid #b0ccb0;border-radius:8px;font-size:0.85rem;color:#2d8a2d;text-decoration:none;">Kovakoodatut säännöt ›</a>
-      <button class="modal-close" style="flex:1" onclick="document.getElementById('info-modal').classList.remove('open')">Sulje</button>
+    <div class="lang-fi">
+      <p>Palvelu näyttää kultakorttikenttien vapaat lähtöajat reaaliajassa suoraan kenttien varausjärjestelmistä.</p>
+      <p style="margin-top:8px"><strong>Rajoitukset:</strong></p>
+      <ul>
+        <li>Kentät on kovakoodattu – uusia kenttiä ei lisätä automaattisesti</li>
+        <li>Vain kultakorttikenttinä merkityt kentät näkyvät</li>
+        <li>Palloränni- ja Caddiemaster-merkinnät perustuvat kiinteisiin kellonaikarajoihin, ei reaaliaikaiseen tietoon</li>
+        <li>Tiedot päivitetään joka sivulatauksella</li>
+        <li>Näytetään vain kuluvan päivän tai valitun päivän tilanne</li>
+      </ul>
+    </div>
+    <div class="lang-en" style="display:none">
+      <p>Shows available tee times for Finnish kultakortti (gold card) golf courses in real time.</p>
+      <p style="margin-top:8px"><strong>Limitations:</strong></p>
+      <ul>
+        <li>Courses are hardcoded – new courses are not added automatically</li>
+        <li>Only courses included in the kultakortti scheme are shown</li>
+        <li>Palloränni and Caddiemaster labels are based on fixed time rules, not real-time data</li>
+        <li>Data is refreshed on every page load</li>
+        <li>Shows only the current or selected date</li>
+      </ul>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <a href="/saannot" target="_blank" data-i18n="rulesLink" style="flex:1;text-align:center;padding:8px;border:1px solid #b0ccb0;border-radius:8px;font-size:0.85rem;color:#2d8a2d;text-decoration:none;">Kovakoodatut säännöt ›</a>
+      <button class="modal-close" data-i18n="close" style="flex:1" onclick="document.getElementById('info-modal').classList.remove('open')">Sulje</button>
     </div>
   </div>
 </div>
@@ -578,8 +606,55 @@ function renderPage(date, results, isToday, nowHour, courses) {
   const IS_TODAY = ${isToday};
   const NOW_HOUR = ${nowHour};
 
+  const TRANSLATIONS = {
+    fi: {
+      subtitle: 'Kultakorttikenttien vapaat lähdöt',
+      players: 'Pelaajia:', time: 'Kellonaika:', list: 'Lista', map: 'Kartta',
+      search: 'Hae', updated: 'Päivitetty', footer: 'Palvelun tehnyt Niklas H',
+      calendarClosed: 'Kalenteri ei auki', rulesLink: 'Kovakoodatut säännöt ›', close: 'Sulje',
+      freeSingle: 'vapaa lähtö', freePlural: 'vapaata lähtöä',
+      full: 'Täynnä', freeOf: n => n + ' vapaana',
+      noSlots: 'Ei vapaita lähtöjä nykyisellä suodatuksella',
+      yourLocation: 'Sijaintisi',
+    },
+    en: {
+      subtitle: 'Available tee times for gold card courses',
+      players: 'Players:', time: 'Time:', list: 'List', map: 'Map',
+      search: 'Go', updated: 'Updated', footer: 'Made by Niklas H',
+      calendarClosed: 'Calendar not open', rulesLink: 'Hardcoded rules ›', close: 'Close',
+      freeSingle: 'open tee time', freePlural: 'open tee times',
+      full: 'Full', freeOf: n => n + ' free',
+      noSlots: 'No available tee times with current filter',
+      yourLocation: 'Your location',
+    },
+  };
+
+  let lang = localStorage.getItem('golfLang') || 'fi';
+
+  function t(key, ...args) {
+    const val = (TRANSLATIONS[lang] || TRANSLATIONS.fi)[key];
+    return typeof val === 'function' ? val(...args) : (val != null ? val : key);
+  }
+
+  function setLang(l) {
+    lang = l;
+    localStorage.setItem('golfLang', l);
+    document.getElementById('lang-fi').classList.toggle('active', l === 'fi');
+    document.getElementById('lang-en').classList.toggle('active', l === 'en');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('.lang-fi').forEach(el => { el.style.display = l === 'fi' ? '' : 'none'; });
+    document.querySelectorAll('.lang-en').forEach(el => { el.style.display = l === 'en' ? '' : 'none'; });
+    document.querySelectorAll('.slot').forEach(slot => {
+      const free = +slot.dataset.free;
+      const label = slot.querySelector('.slot-label');
+      if (label) label.textContent = free === 0 ? t('full') : t('freeOf', free);
+    });
+    updateBadgesAndSort();
+  }
+
   let minPlayers = 1;
-  let timeStart = IS_TODAY ? NOW_HOUR : 7, timeEnd = 20;
+  let timeStart = IS_TODAY ? NOW_HOUR : 7;
+  let timeEnd = IS_TODAY ? Math.min(NOW_HOUR + 3, 20) : 20;
 
   const _saved = JSON.parse(localStorage.getItem('golfFilters') || 'null');
   if (_saved) {
@@ -660,7 +735,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
         badge.textContent = count;
         badge.classList.toggle('zero', count === 0);
       }
-      if (label) label.textContent = count === 1 ? 'vapaa lähtö' : 'vapaata lähtöä';
+      if (label) label.textContent = count === 1 ? t('freeSingle') : t('freePlural');
       card._sortCount = count;
     });
 
@@ -750,7 +825,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
         L.circleMarker([lat, lng], {
           radius: 8, fillColor: '#1a6aff', color: '#fff',
           weight: 2, fillOpacity: 0.9,
-        }).addTo(map).bindPopup('Sijaintisi');
+        }).addTo(map).bindPopup(t('yourLocation'));
       });
     }
   }
@@ -786,7 +861,7 @@ function renderPage(date, results, isToday, nowHour, courses) {
     document.getElementById('drawer-title').textContent = card.querySelector('.card-name').textContent;
     const slots = [...card.querySelectorAll('.slot:not(.full):not(.hidden-by-filter)')];
     if (!slots.length) {
-      document.getElementById('drawer-body').innerHTML = '<p class="drawer-empty">Ei vapaita lähtöjä nykyisellä suodatuksella</p>';
+      document.getElementById('drawer-body').innerHTML = '<p class="drawer-empty">' + t('noSlots') + '</p>';
     } else {
       document.getElementById('drawer-body').innerHTML = slots.map(s => {
         const time = s.querySelector('.slot-time').textContent;
@@ -811,7 +886,8 @@ function renderPage(date, results, isToday, nowHour, courses) {
     document.getElementById('course-drawer').classList.remove('open');
   }
 
-  // Restore view from localStorage
+  // Restore view and lang from localStorage
+  setLang(lang);
   if (_saved && _saved.view) setView(_saved.view);
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
